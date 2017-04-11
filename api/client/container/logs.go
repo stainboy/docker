@@ -16,6 +16,7 @@ import (
 var validDrivers = map[string]bool{
 	"json-file": true,
 	"journald":  true,
+	"loghub":    true,
 }
 
 type logsOptions struct {

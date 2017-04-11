@@ -74,6 +74,10 @@ _dockerfile_env() {
 }
 
 clean() {
+
+	# temporary disble clean
+	return 0
+
 	local packages=(
 		"${PROJECT}/cmd/dockerd" # daemon package main
 		"${PROJECT}/cmd/docker" # client package main

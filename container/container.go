@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/container/stream"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/daemon/logger"
-	"github.com/docker/docker/daemon/logger/jsonfilelog"
 	"github.com/docker/docker/daemon/network"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
@@ -314,6 +313,13 @@ func (container *Container) StartLogger(cfg containertypes.LogConfig) (logger.Lo
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get logging factory: %v", err)
 	}
+
+	// Set logging file for "json-logger"
+	container.LogPath, err = container.GetRootResourcePath(fmt.Sprintf("%s-json.log", container.ID))
+	if err != nil {
+		return nil, err
+	}
+
 	ctx := logger.Context{
 		Config:              cfg.Config,
 		ContainerID:         container.ID,
@@ -325,16 +331,10 @@ func (container *Container) StartLogger(cfg containertypes.LogConfig) (logger.Lo
 		ContainerCreated:    container.Created,
 		ContainerEnv:        container.Config.Env,
 		ContainerLabels:     container.Config.Labels,
+		LogPath:             container.LogPath,
 		DaemonName:          "docker",
 	}
 
-	// Set logging file for "json-logger"
-	if cfg.Type == jsonfilelog.Name {
-		ctx.LogPath, err = container.GetRootResourcePath(fmt.Sprintf("%s-json.log", container.ID))
-		if err != nil {
-			return nil, err
-		}
-	}
 	return c(ctx)
 }
 
@@ -989,11 +989,6 @@ func (container *Container) startLogging() error {
 	container.LogCopier = copier
 	copier.Run()
 	container.LogDriver = l
-
-	// set LogPath field only for json-file logdriver
-	if jl, ok := l.(*jsonfilelog.JSONFileLogger); ok {
-		container.LogPath = jl.LogPath()
-	}
 
 	return nil
 }

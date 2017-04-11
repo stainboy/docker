@@ -1,0 +1,23 @@
+{
+    "drivers": [
+        {
+            "name": "json-file",
+            "enabled": true,
+            "options": {
+                "max-size": "100m",
+                "max-file": "2"
+            }
+        },
+        {
+            "name": "redis",
+            "enabled": true,
+            "options": {
+                "server": "10.58.113.108",
+                "port": "6379",
+                "database": "0",
+                "labels/namespace": "{{labels \"io.kubernetes.pod.namespace\"}}",
+                "labels/logkey": "10.58.113.105:qq:{{labels \"io.kubernetes.pod.namespace\"}}:{{labels \"io.kubernetes.pod.name\"}}:{{labels \"io.kubernetes.container.name\"}}"
+            }
+        }
+    ]
+}
