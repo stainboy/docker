@@ -18,6 +18,21 @@
                 "labels/namespace": "{{labels \"io.kubernetes.pod.namespace\"}}",
                 "labels/logkey": "10.58.113.105:qq:{{labels \"io.kubernetes.pod.namespace\"}}:{{labels \"io.kubernetes.pod.name\"}}:{{labels \"io.kubernetes.container.name\"}}"
             }
+        },
+        {
+            "name": "kafka",
+            "enabled": true,
+            "options": {
+                "formatted-logkey": "qq:{{labels \"io.kubernetes.pod.namespace\"}}:{{labels \"io.kubernetes.pod.name\"}}:{{labels \"io.kubernetes.container.name\"}}",
+                "disired-containers":"nginx",
+                "topic": "raw_log",
+                "brokers": "10.58.34.104:9092",
+                "required-ack": "1",
+                "compression": "2",
+                "flush/frequency": "5000",
+                "flush/bytes": "1000000",
+                "max-message-bytes": "1000000"
+            }
         }
     ]
 }

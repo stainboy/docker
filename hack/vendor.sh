@@ -171,4 +171,16 @@ clone git github.com/flynn-archive/go-shlex 3f9db97f856818214da2e1057f8ad8480397
 clone git github.wdf.sap.corp/sigma-anywhere/saptail master
 clone git github.com/garyburd/redigo 0d253a66e6e1349f4581d6d2b300ee434ee2da9f
 
+# kafka
+clone git github.com/davecgh/go-spew 346938d642f2ec3594ed81d874461961cd0faa76
+clone git github.com/eapache/go-resiliency  b86b1ec0dd4209a588dc1285cdd471e73525c0b3
+clone git github.com/eapache/go-xerial-snappy bb955e01b9346ac19dc29eb16586c90ded99a98c
+clone git github.com/eapache/queue  44cc805cf13205b55f69e14bcb69867d1ae92f98
+clone git github.com/golang/snappy 553a641470496b2327abcac10b36396bd98e45c9
+clone git github.com/klauspost/crc32 1bab8b35b6bb565f92cbc97939610af9369f942a
+clone git github.com/pierrec/lz4 f5b77fd73d83122495309c0f459b810f83cc291f
+clone git github.com/pierrec/xxHash 5a004441f897722c627870a981d02b29924215fa
+clone git github.com/rcrowley/go-metrics 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+clone git gopkg.in/Shopify/sarama.v1 0fb560e5f7fbcaee2f75e3c34174320709f69944
+
 clean
