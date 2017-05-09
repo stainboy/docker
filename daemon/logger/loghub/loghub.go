@@ -85,7 +85,9 @@ func ValidateLogOpt(cfg map[string]string) error {
 // Log converts logger.Message to jsonlog.JSONLog and serializes it to file.
 func (l *loghubLogger) Log(msg *logger.Message) error {
 	for _, writer := range l.writers {
-		writer.Log(msg)
+		if err := writer.Log(msg); err != nil {
+			logrus.Warn(err)
+		}
 	}
 	return nil
 }
