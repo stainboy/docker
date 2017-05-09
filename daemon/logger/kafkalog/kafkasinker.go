@@ -124,8 +124,11 @@ func newManager(cfg map[string]string) (*kafkaManager, error) {
 		logrus.Debugf("Kafka-logger# max-message-bytes: %v", v)
 	}
 
-	return km, nil
+	km.config.Version = kafka.V0_10_1_0
 
+	km.config.ClientID = "Kafka-logger"
+
+	return km, nil
 }
 
 func (km *kafkaManager) Log(msg *kafka.ProducerMessage) error {
