@@ -45,7 +45,7 @@ func Test_GetFileStat_1(t *testing.T) {
 
 func Test_Redis_SetOffset_1(t *testing.T) {
     f := New()
-    err := f.SetRedis("127.0.0.1", "6379", 0)
+    err := f.SetRedis(URL, Port, 0)
     if err != nil {
         t.Error(err)
     }

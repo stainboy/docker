@@ -4,9 +4,6 @@ import (
     "testing"
     "time"
     "github.com/docker/docker/daemon/logger"
-
-    "os"
-    "syscall"
 )
 
 const URL = "127.0.0.1"

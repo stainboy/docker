@@ -12,6 +12,11 @@ import (
 
 //var pool *redis.Pool
 //var idleTime = 10
+var (
+    connectionTimeout = redis.DialConnectTimeout(time.Second)
+    readTimeout       = redis.DialReadTimeout(time.Second)
+    writeTimeout      = redis.DialWriteTimeout(time.Second)
+)
 
 type Config struct {
     Url  string
@@ -31,6 +36,7 @@ type Interface interface {
     //sendOut(key string) (error)
     //writeFile(filename string, line []byte) (error)
 }
+
 //type Stat_t syscall.Stat_t
 
 func NewPool(addr string, DB int) *redis.Pool {
@@ -38,13 +44,14 @@ func NewPool(addr string, DB int) *redis.Pool {
         MaxIdle:     3,
         IdleTimeout: 240 * time.Second,
         Dial: func() (redis.Conn, error) {
-            c, err := redis.Dial("tcp", addr)
+            c, err := redis.Dial("tcp", addr, connectionTimeout, readTimeout, writeTimeout)
             if err != nil {
                 return nil, err
             }
             c.Do("SELECT", DB)
             return c, nil
         },
+
     }
 }
 func checkErr(err error, msg ...interface{}) {
@@ -68,11 +75,11 @@ func New(redisURL, redisPort string, DB int) (Interface, error) {
         DB:    DB,
         flash: false,
     }
-    go func() {
-        for {
-            R.flush()
-        }
-    }()
+    //go func() {
+    //    for {
+    //        R.flush()
+    //    }
+    //}()
     //go func() {
     //    for {
     //        _, err := R.HealthCheck()
@@ -92,7 +99,7 @@ func New(redisURL, redisPort string, DB int) (Interface, error) {
 //}
 func (c *Config) flush() (error) {
     //if c.flash {
-        time.Sleep(time.Second)
+    //    time.Sleep(time.Second)
     //}
     client := c.Pool.Get()
     err := client.Flush()
