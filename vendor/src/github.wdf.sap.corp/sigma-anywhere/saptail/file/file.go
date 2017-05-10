@@ -5,11 +5,15 @@ import (
     "bufio"
     "io"
     "time"
-    "github.wdf.sap.corp/sigma-anywhere/saptail/redis"
+    SAPredis "github.wdf.sap.corp/sigma-anywhere/saptail/redis"
+    "github.com/garyburd/redigo/redis"
+
     "fmt"
     "syscall"
     "bytes"
     "compress/zlib"
+    "encoding/gob"
+    "errors"
 )
 
 type MapStr map[string]interface{}
@@ -21,7 +25,7 @@ func checkErr(err error) {
 }
 
 type Stat_t syscall.Stat_t
-
+type Redis SAPredis.Config
 type Reader struct {
     file   string
     offset int64
@@ -32,17 +36,25 @@ type FStat struct {
     offset   int64
 }
 type Tail struct {
-    Client redis.Config
+    Redis RedisInterface
 }
 type Interface interface {
     GetFileStat(filename string) (*syscall.Stat_t, error)
+    SetRedis(redisURL, redisPort string, DB int) (error)
+}
+type RedisInterface interface {
+    SetRedis(redisURL, redisPort string, DB int) (error)
+    GetOffset(filename string, params ...int) (int64, error)
+    SetOffset(filename string, Offset int64, params ...int) (error)
+    GetFileStat(filename string, params ...int) (*syscall.Stat_t, error)
+    SetFileStat(filename string, stat *syscall.Stat_t, params ...int) (error)
 }
 
-func New() (Interface, error) {
-    var F Interface
-    F = &Tail{
-    }
-    return F, nil
+func New() (*Tail) {
+    return &Tail{Redis: new(Redis)}
+}
+func (t *Tail) SetRedis(redisURL, redisPort string, DB int) (error) {
+    return t.Redis.SetRedis(redisURL, redisPort, DB)
 }
 func (f *Reader) Read(p []byte) (n int, err error) {
     reader, err := os.Open(f.file)
@@ -71,7 +83,7 @@ func (t *Tail) MonitorFile(filename string, zip bool) {
 }
 func (t *Tail) monitorFile(filename string, zip bool) {
     var err error
-    offset, err := t.Client.GetOffset(filename)
+    offset, err := t.Redis.GetOffset(filename)
     checkErr(err)
     var lines string
     reader := &Reader{filename, offset}
@@ -105,7 +117,7 @@ func (t *Tail) monitorFile(filename string, zip bool) {
         "offset":     offset,
         "zip":        zip,
     }
-    t.Client.SetOffset(filename, reader.offset)
+    t.Redis.SetOffset(filename, reader.offset)
     fmt.Println(e)
 }
 
@@ -122,4 +134,130 @@ func DoZlibUnCompress(compressSrc []byte) []byte {
     r, _ := zlib.NewReader(b)
     io.Copy(&out, r)
     return out.Bytes()
+}
+
+func (r *Redis) SetRedis(redisURL, redisPort string, DB int) (error) {
+    r.Port = redisPort
+    r.Url = redisURL
+    r.DB = DB
+    r.Pool = SAPredis.NewPool(redisURL+":"+redisPort, DB)
+    return nil
+}
+
+func (r *Redis) GetOffset(filename string, params ...int) (int64, error) {
+    var DB int
+    if len(params) == 0 {
+        DB = 2
+    } else {
+        DB = params[0]
+    }
+    client := r.Pool.Get()
+    defer client.Close()
+    client.Do("SELECT", DB)
+
+    reply, err := client.Do("GET", filename)
+    checkErr(err)
+    if reply == nil {
+        return 0, errors.New("file does not exist")
+    } else {
+        re, err := redis.Int64(reply, nil)
+        return re, err
+    }
+}
+func (r *Redis) SetOffset(filename string, Offset int64, params ...int) (error) {
+    var DB int
+    if len(params) == 0 {
+        DB = 2
+    } else {
+        DB = params[0]
+    }
+    client := r.Pool.Get()
+    defer client.Close()
+    client.Do("SELECT", DB)
+    r.readmeOffset(DB)
+
+    _, err := client.Do("SET", filename, Offset)
+    return err
+
+}
+func (r *Redis) readmeOffset(DB int) {
+    client := r.Pool.Get()
+    defer client.Close()
+    client.Do("SELECT", DB)
+    reply, err := redis.String(client.Do("GET", "README"))
+    readme := "This db is for Offset, you can use `GET <KEY>`"
+    if err != nil {
+        client.Do("SET", "README", readme)
+    } else if reply != readme {
+        client.Do("SET", "README", readme)
+    }
+}
+
+func (r *Redis) GetFileStat(filename string, params ...int) (*syscall.Stat_t, error) {
+    var DB int
+    var err error
+    if len(params) == 0 {
+        DB = 3
+    } else {
+        DB = params[0]
+    }
+    client := r.Pool.Get()
+    defer client.Close()
+    client.Do("SELECT", DB)
+    //c.Client.Do("SELECT", DB)
+
+    //reply, err := redis.Values(client.Do("HGETALL", filename))
+    var stat syscall.Stat_t
+    //err = redis.ScanStruct(reply, &stat)
+    //checkErr(err)
+
+    b, err := redis.Bytes(client.Do("GET", filename))
+    if err != nil {
+        checkErr(err)
+    }
+    //var s syscall.Stat_t
+    var network bytes.Buffer
+    network.Write(b)
+    dec := gob.NewDecoder(&network)
+    dec.Decode(&stat)
+    //fmt.Println(s)
+
+    return &stat, err
+}
+func (r *Redis) SetFileStat(filename string, stat *syscall.Stat_t, params ...int) (error) {
+    var DB int
+    var err error
+    if len(params) == 0 {
+        DB = 3
+    } else {
+        DB = params[0]
+    }
+    client := r.Pool.Get()
+    defer client.Close()
+    client.Do("SELECT", DB)
+    r.readmeFileStat(DB)
+
+    var network bytes.Buffer
+    enc := gob.NewEncoder(&network)
+    err = enc.Encode(stat)
+    if err != nil {
+        checkErr(err)
+    }
+    //fmt.Println(network.Bytes())
+    client.Do("SET", filename, network.Bytes())
+    //_, err = client.Do("HMSET", redis.Args{filename}.AddFlat(stat)...)
+    return err
+}
+func (r *Redis) readmeFileStat(DB int) {
+    client := r.Pool.Get()
+    defer client.Close()
+    client.Do("SELECT", DB)
+    //readme := "This db is for FileStat, you can use `HGETALL <KEY>`"
+    readme := "This db is for FileStat"
+    reply, err := redis.String(client.Do("GET", "README"))
+    if err != nil {
+        client.Do("SET", "README", readme)
+    } else if reply != readme {
+        client.Do("SET", "README", readme)
+    }
 }

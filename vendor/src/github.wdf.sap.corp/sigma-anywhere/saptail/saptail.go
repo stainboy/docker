@@ -26,14 +26,7 @@ func New(URL, Port string, DB int) (Interface, error) {
 }
 
 func (t *Taylor) Message(msg *logger.Message, lazyMode bool) (error) {
-
-    var err error
-    if lazyMode {
-        // lazy to send msg, buffer 10M, per second send once
-        err = t.Redis.SendMessage(msg, true)
-    } else {
-        err = t.Redis.SendMessage(msg, false)
-    }
+    err := t.Redis.SendMessage(msg, lazyMode)
     checkErr(err)
     return err
 }
