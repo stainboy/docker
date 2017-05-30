@@ -2,9 +2,10 @@
 package loghub
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
+
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/daemon/logger"
@@ -95,7 +96,9 @@ func (l *loghubLogger) Log(msg *logger.Message) error {
 // Close closes underlying file and signals all readers to stop.
 func (l *loghubLogger) Close() error {
 	for _, writer := range l.writers {
-		writer.Close()
+		if err := writer.Close(); err != nil {
+			logrus.Warn(err)
+		}
 	}
 	return nil
 }
@@ -117,7 +120,7 @@ func validateAndInit(filename string) error {
 		return err
 	}
 
-	err = json.Unmarshal(raw, &config)
+	err = yaml.Unmarshal(raw, &config)
 	if err != nil {
 		return err
 	}
@@ -128,7 +131,9 @@ func validateAndInit(filename string) error {
 			if err != nil {
 				return err
 			}
-			logrus.Infof("Loghub driver has successfully validated sub driver %s", driver.Name)
+			logrus.Infof("Loghub driver has successfully loaded sub driver %s", driver.Name)
+		} else {
+			logrus.Infof("Loghub driver has disabled sub driver %s", driver.Name)
 		}
 	}
 

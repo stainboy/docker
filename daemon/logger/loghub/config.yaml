@@ -1,0 +1,21 @@
+---
+drivers:
+- name: json-file
+  enabled: true
+  options:
+    max-size: 100m
+    max-file: "2"
+- name: fifo
+  enabled: true
+  options:
+    buffer-size: 1m
+    kafka/dir: /var/log/docker/fifo/kafka
+    kafka/logkey: '{{labels "io.kubernetes.pod.name"}}.{{source}}'
+    kafka/filter: '{{labels "io.kubernetes.container.name" | eq "nginx"}}'
+    kafka/meta: '{{bash "cat /etc/cluster-name"}}:{{labels "io.kubernetes.pod.namespace"}}:{{labels "io.kubernetes.pod.name"}}:{{labels "io.kubernetes.container.name"}}:false'
+    kafka/mixstd: 'false'
+    redis/dir: /var/log/docker/fifo/redis
+    redis/logkey: '{{labels "io.kubernetes.pod.name"}}'
+    redis/filter: 'true'
+    redis/meta: '{{inet "eth0,ens192"}}:{{bash "cat /etc/cluster-name"}}:{{labels "io.kubernetes.pod.namespace"}}:{{labels "io.kubernetes.pod.name"}}:{{labels "io.kubernetes.container.name"}}:true'
+    redis/mixstd: 'true'

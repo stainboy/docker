@@ -167,6 +167,9 @@ clone git github.com/spf13/pflag cb88ea77998c3f024757528e3305022ab50b43be
 clone git github.com/inconshreveable/mousetrap 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 clone git github.com/flynn-archive/go-shlex 3f9db97f856818214da2e1057f8ad84803971cff
 
+# loghub & fifo
+clone git gopkg.in/yaml.v2 v2
+
 # sigmabeat
 clone git github.wdf.sap.corp/sigma-anywhere/saptail master
 clone git github.com/garyburd/redigo 0d253a66e6e1349f4581d6d2b300ee434ee2da9f
