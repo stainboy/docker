@@ -169,6 +169,7 @@ clone git github.com/flynn-archive/go-shlex 3f9db97f856818214da2e1057f8ad8480397
 
 # loghub & fifo
 clone git gopkg.in/yaml.v2 v2
+clone git github.com/containerd/fifo master
 
 # sigmabeat
 clone git github.wdf.sap.corp/sigma-anywhere/saptail master

@@ -1,6 +1,7 @@
 package fifo
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -29,7 +30,7 @@ func createAppender(ctx logger.Context, opts *fifoOptions, def *fifoDef) (logger
 	// mkfifo for stdout
 	if logkey, err := render(ctx, def.logkey, 1); err != nil {
 		return nil, err
-	} else if app.stdout, err = mkfifo(logkey, true); err != nil {
+	} else if app.stdout, err = mkfifo(fmt.Sprintf("%s/%s", def.dir, logkey), true); err != nil {
 		return nil, err
 	}
 
@@ -38,7 +39,7 @@ func createAppender(ctx logger.Context, opts *fifoOptions, def *fifoDef) (logger
 		app.stderr = app.stdout
 	} else if logkey, err := render(ctx, def.logkey, 2); err != nil {
 		return nil, err
-	} else if app.stderr, err = mkfifo(logkey, true); err != nil {
+	} else if app.stderr, err = mkfifo(fmt.Sprintf("%s/%s", def.dir, logkey), true); err != nil {
 		return nil, err
 	}
 
