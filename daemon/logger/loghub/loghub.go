@@ -59,7 +59,7 @@ func New(ctx logger.Context) (logger.Logger, error) {
 			if err != nil {
 				return nil, err
 			}
-			hub.writers = append(hub.writers, writer)
+			hub.writers = append(hub.writers, newSecureLogger(writer))
 
 			reader, ok := writer.(logger.LogReader)
 			if ok {
