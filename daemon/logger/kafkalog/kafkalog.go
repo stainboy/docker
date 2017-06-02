@@ -82,25 +82,6 @@ func ValidateLogOpt(cfg map[string]string) error {
 //New creates new redislog which writes to filename passed in
 //on given context.
 func New(ctx logger.Context) (logger.Logger, error) {
-	// funcMap := template.FuncMap{
-	// 	"labels": func(key string) string {
-	// 		return ctx.ContainerLabels[key]
-	// 	},
-	// }
-
-	// l := &kafkaLogger{}
-	// if t, err := template.New("").Funcs(funcMap).Parse(manager.formatKey); err != nil {
-	// 	logrus.Warnf("Initial kafaka driver failed %v", err)
-	// } else {
-	// 	buf := &bytes.Buffer{}
-	// 	if err := t.Execute(buf, ctx.ContainerLabels); err != nil {
-	// 		logrus.Warnf("Initial kafaka driver failed %v", err)
-	// 	} else {
-	// 		l.messageKey = buf.String()
-	// 		l.valid = true
-	// 	}
-	// }
-
 	l := &kafkaLogger{}
 	if t, err := logger.Render(ctx, manager.formatKey); err != nil {
 		logrus.Warnf("Initial kafaka driver failed %v", err)
@@ -112,12 +93,12 @@ func New(ctx logger.Context) (logger.Logger, error) {
 	l.sinker = manager
 	l.topic = manager.topic
 
-	if manager.disiredContainers != nil {
+	if manager.desiredContainers != nil {
 		l.valid = false
 		v, ok := ctx.ContainerLabels["io.kubernetes.container.name"]
-		logrus.Infof("check current container name %v", v)
+		logrus.Debugf("check current container name %v", v)
 		if ok {
-			for _, cn := range manager.disiredContainers {
+			for _, cn := range manager.desiredContainers {
 				if cn == v {
 					l.valid = true
 					break
@@ -147,5 +128,5 @@ type factory struct {
 	sinker            kafka.AsyncProducer
 	topic             string
 	formatKey         string
-	disiredContainers []string
+	desiredContainers []string
 }

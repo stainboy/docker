@@ -13,14 +13,16 @@ import (
 
 var supportedOpts = map[string]string{
 	"formatted-logkey":   "",
-	"disired-containers": "",
+	"desired-containers": "",
 	"brokers":            "",
 	"topic":              "",
 	"required-ack":       "",
 	"compression":        "",
 	"flush/frequency":    "",
 	"flush/bytes":        "",
-	"max-message-bytes":  ""}
+	"producer/retry":     "",
+	"max-message-bytes":  "",
+	"logger-channel-size":""}
 
 type kafkaSinker interface {
 	//This is none blocking function
@@ -34,7 +36,7 @@ type kafkaManager struct {
 	brokerList        []string
 	topic             string
 	formatKey         string
-	disiredContainers []string
+	desiredContainers []string
 	config            *kafka.Config
 
 	ready uint32
@@ -43,14 +45,24 @@ type kafkaManager struct {
 //newManager is to create a kafka manager with provided config. The parsed configuration will be used to build real kafka producer laterly
 func newManager(cfg map[string]string) (*kafkaManager, error) {
 	logrus.Info("validate logger opt")
+
 	for key := range cfg {
 		if _, ok := supportedOpts[key]; !ok {
 			return nil, fmt.Errorf("unknown log opt '%s' for kafka log driver", key)
 		}
 	}
 
+	channelSize := 10000
+	if val, ok := cfg["logger-channel-size"]; ok {
+		v, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, err
+		}
+		channelSize = v
+	}
+	logrus.Infof("Channel size: %v", channelSize)
 	km := &kafkaManager{
-		msgBuf: make(chan *kafka.ProducerMessage),
+		msgBuf: make(chan *kafka.ProducerMessage, channelSize),
 	}
 
 	brokers, ok := cfg["brokers"]
@@ -73,9 +85,9 @@ func newManager(cfg map[string]string) (*kafkaManager, error) {
 	logrus.Debugf("Kafka-logger# formatted-logkey: %v", km.formatKey)
 
 	//It is concatenated with ","
-	if val, ok := cfg["disired-containers"]; ok {
-		km.disiredContainers = strings.Split(val, ",")
-		logrus.Debugf("Kafka-logger# disired-containers: %v", val)
+	if val, ok := cfg["desired-containers"]; ok {
+		km.desiredContainers = strings.Split(val, ",")
+		logrus.Debugf("Kafka-logger# desired-containers: %v", val)
 	}
 
 	km.config = kafka.NewConfig()
@@ -122,6 +134,15 @@ func newManager(cfg map[string]string) (*kafkaManager, error) {
 		}
 		km.config.Producer.MaxMessageBytes = v
 		logrus.Debugf("Kafka-logger# max-message-bytes: %v", v)
+	}
+
+	if val, ok := cfg["producer/retry"]; ok {
+		v, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, err
+		}
+		km.config.Producer.Retry.Max = v
+		logrus.Debugf("Kafka-logger# producer/retry: %v", v)
 	}
 
 	km.config.Version = kafka.V0_10_1_0

@@ -21,6 +21,11 @@ type loghubConfig struct {
 		Enabled bool              `json:"enabled"`
 		Options map[string]string `json:"options"`
 	} `json:"drivers"`
+	Circuit struct {
+		//Microseconds
+		Timeout     int `json:"timeout"`
+		ConsecCount int64 `json:"consec-count"`
+	} `json:"curcuit"`
 }
 
 type loghubLogger struct {
@@ -59,7 +64,8 @@ func New(ctx logger.Context) (logger.Logger, error) {
 			if err != nil {
 				return nil, err
 			}
-			hub.writers = append(hub.writers, newSecureLogger(writer))
+			hub.writers = append(hub.writers,
+				newSecureLogger(writer, config.Circuit.ConsecCount,  config.Circuit.Timeout))
 
 			reader, ok := writer.(logger.LogReader)
 			if ok {
