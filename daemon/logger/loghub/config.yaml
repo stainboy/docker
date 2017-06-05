@@ -20,9 +20,12 @@ drivers:
      #Milliseconds
      flush/frequency: '200'
      flush/bytes: '10000000'
-     producer/retry: '0'
+     producer/retry: '3'
      max-message-bytes: '1000000'
      logger-channel-size: '10000'
+     circuit-breaker-consec-count: '5'
+     #Microseconds
+     circuit-breaker-timeout: '100'
 
 - name: fifo
   enabled: false

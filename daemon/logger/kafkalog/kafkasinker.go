@@ -9,8 +9,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	kafka "gopkg.in/Shopify/sarama.v1"
+	"github.com/rubyist/circuitbreaker"
 )
 
+var logCounter = 0
 var supportedOpts = map[string]string{
 	"formatted-logkey":   "",
 	"desired-containers": "",
@@ -22,7 +24,9 @@ var supportedOpts = map[string]string{
 	"flush/bytes":        "",
 	"producer/retry":     "",
 	"max-message-bytes":  "",
-	"logger-channel-size":""}
+	"logger-channel-size":"",
+	"circuit-breaker-consec-count":"",
+	"circuit-breaker-timeout":""}
 
 type kafkaSinker interface {
 	//This is none blocking function
@@ -38,14 +42,15 @@ type kafkaManager struct {
 	formatKey         string
 	desiredContainers []string
 	config            *kafka.Config
+	breaker      	  *circuit.Breaker
+	breakerTimeout    time.Duration
+	ready	          uint32
 
-	ready uint32
+
 }
 
 //newManager is to create a kafka manager with provided config. The parsed configuration will be used to build real kafka producer laterly
 func newManager(cfg map[string]string) (*kafkaManager, error) {
-	logrus.Info("validate logger opt")
-
 	for key := range cfg {
 		if _, ok := supportedOpts[key]; !ok {
 			return nil, fmt.Errorf("unknown log opt '%s' for kafka log driver", key)
@@ -60,9 +65,30 @@ func newManager(cfg map[string]string) (*kafkaManager, error) {
 		}
 		channelSize = v
 	}
-	logrus.Infof("Channel size: %v", channelSize)
-	km := &kafkaManager{
+
+	bcc := 3
+	if val, ok := cfg["circuit-breaker-consec-count"]; ok {
+		v, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, err
+		}
+		bcc = v
+	}
+
+	//Microseconds
+	breakerTimeout := 100
+	if val, ok := cfg["circuit-breaker-timeout"]; ok {
+		v, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, err
+		}
+		breakerTimeout = v
+	}
+
+ 	km := &kafkaManager{
 		msgBuf: make(chan *kafka.ProducerMessage, channelSize),
+		breakerTimeout: time.Microsecond * time.Duration(breakerTimeout),
+		breaker: circuit.NewConsecutiveBreaker(int64(bcc)),
 	}
 
 	brokers, ok := cfg["brokers"]
@@ -146,7 +172,7 @@ func newManager(cfg map[string]string) (*kafkaManager, error) {
 	}
 
 	km.config.Version = kafka.V0_10_1_0
-
+	km.config.Producer.Return.Successes = true
 	km.config.ClientID = "Kafka-logger"
 
 	return km, nil
@@ -156,7 +182,21 @@ func (km *kafkaManager) Log(msg *kafka.ProducerMessage) error {
 	if atomic.LoadUint32(&km.ready) == 0 {
 		return fmt.Errorf("Kafka producer is not ready, fail to send log[Key:%v] to kafka", msg.Key)
 	}
-	km.msgBuf <- msg
+
+	if km.breaker.Ready(){
+		begin := time.Now()
+		km.msgBuf <- msg
+		elapse := time.Since(begin)
+		if elapse > km.breakerTimeout {
+			km.breaker.Fail()
+		}
+	} else {
+		logCounter += 1
+		if logCounter == 1000{
+			logrus.Infof("Circuit breaker is open for Kafka logger")
+			logCounter = 0
+		}
+	}
 
 	return nil
 }
@@ -179,15 +219,15 @@ func (km *kafkaManager) start() {
 	}
 
 	go func(p kafka.AsyncProducer, m <-chan *kafka.ProducerMessage) {
-		logrus.Info("Kafka Manager begins to checkout incomming messages and drop them into the producer")
+		logrus.Debugf("Kafka Manager begins to checkout incomming messages and drop them into the producer")
 		for msg := range m {
 			p.Input() <- msg
 		}
 	}(producer, km.msgBuf)
 
 	go func(p kafka.AsyncProducer) {
-		logrus.Info("Kafka Manager begins to monitor Kafka producer errors and print them")
-		for err := range p.Errors() {
+ 		for err := range p.Errors() {
+			km.breaker.Fail()
 			//if kafka connection failed, each message will produce a message including "circuit breaker is open", which is too many
 			if !strings.Contains(err.Error(), "circuit") {
 				logrus.Warnf("Failed to write log entry: %v", err)
@@ -195,6 +235,11 @@ func (km *kafkaManager) start() {
 		}
 	}(producer)
 
+	go func(p kafka.AsyncProducer) {
+		for range p.Successes() {
+			km.breaker.Success()
+		}
+	}(producer)
 	//Finally set a flag
 	atomic.StoreUint32(&km.ready, 1)
 }

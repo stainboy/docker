@@ -65,7 +65,7 @@ func New(ctx logger.Context) (logger.Logger, error) {
 				return nil, err
 			}
 			hub.writers = append(hub.writers,
-				newSecureLogger(writer, config.Circuit.ConsecCount,  config.Circuit.Timeout))
+				writer)
 
 			reader, ok := writer.(logger.LogReader)
 			if ok {
